@@ -41,7 +41,7 @@
             overflow: hidden;
         }
 
-        #score, #level, #powerup-status {
+        #score, #level, #powerup-status, #cash {
             position: absolute;
             left: 15px;
             font-weight: bold;
@@ -63,6 +63,11 @@
         #powerup-status {
             top: 110px;
             font-size: 2em;
+        }
+
+        #cash {
+            top: 150px;
+            font-size: 1.5em;
         }
         
         #instructions {
@@ -151,11 +156,12 @@
         <div id="score">0</div>
         <div id="level">Nivel: 1</div>
         <div id="powerup-status" class="hidden">🧲</div>
+        <div id="cash">💰 0</div>
         <div id="instructions">
             <p>← → para mover</p>
             <p>Toca para mover en móvil</p>
         </div>
-        <div id="boat">🚤</div>
+        <div id="boat"></div>
         <div id="water"></div>
     </div>
 
@@ -166,17 +172,27 @@
             const scoreElement = document.getElementById('score');
             const levelElement = document.getElementById('level');
             const powerupStatusElement = document.getElementById('powerup-status');
+            const cashElement = document.getElementById('cash');
             
             let score = 0;
+            let cash = 0;
             let currentLevel = 1;
+            let currentBoatIndex = 0;
             let boatPosition = 50;
             const boatSpeed = 2;
             let itemIntervalId = null;
 
             let isMagnetActive = false;
             let magnetTimerId = null;
-            const MAGNET_DURATION = 8000; // 8 seconds
-            const MAGNET_RADIUS_PERCENT = 25; // 25% of screen width
+            const MAGNET_DURATION = 8000;
+            const MAGNET_RADIUS_PERCENT = 25;
+
+            const boatLevels = [
+                { emoji: '🚤', cashForNext: 100 },
+                { emoji: '🛥️', cashForNext: 250 },
+                { emoji: '🛳️', cashForNext: 500 },
+                { emoji: '⛴️', cashForNext: Infinity }
+            ];
 
             const levelConfig = {
                 1: { nextLevelScore: 100, itemInterval: 1500, minSpeed: 1, maxSpeed: 3 },
@@ -192,18 +208,24 @@
                 { emoji: '💎', value: 50, name: 'treasure' },
                 { emoji: '🍎', value: 10, name: 'fruit' },
                 { emoji: '🍌', value: 10, name: 'fruit' },
+                { emoji: '💰', value: 0, cash: 25, name: 'cash', chance: 0.2 },
                 { emoji: '🗑️', value: -25, name: 'trash' },
                 { emoji: '👢', value: -10, name: 'trash' },
-                { emoji: '🧲', value: 0, name: 'powerup', chance: 0.1 } // 10% chance
+                { emoji: '🧲', value: 0, name: 'powerup', chance: 0.1 }
             ];
 
             function createItem() {
                 let itemData;
-                // Powerup chance logic
-                if (Math.random() < (itemTypes.find(t => t.name === 'powerup').chance || 0)) {
+                const rand = Math.random();
+                const powerupChance = itemTypes.find(t => t.name === 'powerup').chance || 0;
+                const cashChance = itemTypes.find(t => t.name === 'cash').chance || 0;
+
+                if (rand < powerupChance) {
                     itemData = itemTypes.find(t => t.name === 'powerup');
+                } else if (rand < powerupChance + cashChance) {
+                    itemData = itemTypes.find(t => t.name === 'cash');
                 } else {
-                    const regularItems = itemTypes.filter(t => t.name !== 'powerup');
+                    const regularItems = itemTypes.filter(t => t.name !== 'powerup' && t.name !== 'cash');
                     itemData = regularItems[Math.floor(Math.random() * regularItems.length)];
                 }
 
@@ -234,17 +256,11 @@
                     const boatRect = boat.getBoundingClientRect();
                     const itemRect = element.getBoundingClientRect();
 
-                    if (
-                        itemRect.bottom > boatRect.top &&
-                        itemRect.top < boatRect.bottom &&
-                        itemRect.right > boatRect.left &&
-                        itemRect.left < boatRect.right
-                    ) {
-                        if (itemData.name === 'powerup') {
-                            activateMagnet();
-                        } else {
-                            updateScore(itemData.value);
-                        }
+                    if (itemRect.bottom > boatRect.top && itemRect.top < boatRect.bottom && itemRect.right > boatRect.left && itemRect.left < boatRect.right) {
+                        if (itemData.name === 'powerup') activateMagnet();
+                        else if (itemData.name === 'cash') updateCash(itemData.cash);
+                        else updateScore(itemData.value);
+                        
                         element.remove();
                         return;
                     }
@@ -262,9 +278,26 @@
             function updateScore(change) {
                 score += change;
                 scoreElement.textContent = score;
+                if (score < 0) score = 0; // Prevent score from going negative
 
                 if (score >= levelConfig[currentLevel].nextLevelScore) {
                     levelUp();
+                }
+            }
+
+            function updateCash(amount) {
+                cash += amount;
+                cashElement.textContent = `💰 ${cash}`;
+
+                if (cash >= boatLevels[currentBoatIndex].cashForNext) {
+                    upgradeBoat();
+                }
+            }
+
+            function upgradeBoat() {
+                if (boatLevels[currentBoatIndex + 1]) {
+                    currentBoatIndex++;
+                    boat.textContent = boatLevels[currentBoatIndex].emoji;
                 }
             }
 
@@ -328,6 +361,12 @@
                 requestAnimationFrame(gameLoop);
             }
 
+            function init() {
+                boat.textContent = boatLevels[currentBoatIndex].emoji;
+                itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
+                gameLoop();
+            }
+
             window.addEventListener('keydown', (e) => { if (e.key in keysPressed) keysPressed[e.key] = true; });
             window.addEventListener('keyup', (e) => { if (e.key in keysPressed) keysPressed[e.key] = false; });
 
@@ -346,8 +385,7 @@
                 boat.style.transform = 'translateX(0)';
             }, { passive: false });
 
-            itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
-            gameLoop();
+            init();
         });
     </script>
 </body>

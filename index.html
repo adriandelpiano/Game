@@ -10,7 +10,7 @@
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
         body { transition: background 1s; }
         #game-container { position: relative; width: 100%; height: 100%; max-width: 1000px; overflow: hidden; margin: auto; }
-        #player { position: absolute; width: var(--player-size); height: var(--player-size); font-size: calc(var(--player-size) * 0.8); text-align: center; line-height: var(--player-size); z-index: 20; transition: left 0.1s linear, bottom 0.1s linear; }
+        #player { position: absolute; width: var(--player-size); height: var(--player-size); font-size: calc(var(--player-size) * 0.8); text-align: center; line-height: var(--player-size); z-index: 20; }
         .item { position: absolute; width: var(--item-size); height: var(--item-size); font-size: calc(var(--item-size) * 0.9); text-align: center; line-height: var(--item-size); user-select: none; z-index: 5; }
         .projectile { position: absolute; width: 10px; height: 25px; background-color: #FFD700; border-radius: 5px; z-index: 15; }
         .hidden { display: none !important; }
@@ -143,7 +143,11 @@
                 this.gameState.score = 0;
                 this.dom.updateScore(0);
             }
-            update() { this.updatePlayer(); this.updateItems(); this.updateProjectiles(); }
+            update() { 
+                this.updatePlayer(); 
+                this.updateItems(); 
+                this.updateProjectiles(); 
+            }
             checkGoal() { return false; }
             
             updatePlayer() {

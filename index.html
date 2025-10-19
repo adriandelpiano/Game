@@ -3,638 +3,377 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Agua Abajo... y al Espacio!</title>
+    <title>Aventura Modular</title>
     <style>
-        :root {
-            --water-height: 20vh;
-            --player-size: 10vmin;
-            --item-size: 6vmin;
-        }
+        :root { --player-size: 10vmin; --item-size: 6vmin; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-        body {
-            background: linear-gradient(to bottom, #87CEEB 0%, #B2FFFF 80%);
-            position: relative; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: background 1s;
-        }
-        body.space-mode { background: #000; }
-        #game-container { position: relative; width: 100%; height: 100%; max-width: 1000px; overflow: hidden; cursor: pointer; }
-
-        #score, #level, #powerup-status, #cash, #health, #game-over {
-            position: absolute; left: 15px; font-weight: bold; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 100;
-        }
-        #score { top: 15px; font-size: 3em; }
-        #level { top: 70px; font-size: 1.5em; }
-        #powerup-status { top: 110px; font-size: 2em; }
-        #cash { top: 150px; font-size: 1.5em; }
-        #health { top: 15px; font-size: 2em; }
-        #game-over { top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3em; text-align: center; width: 100%; }
-
-        #instructions { position: absolute; top: 20px; right: 20px; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); text-align: right; z-index: 100; }
-        .hidden { display: none !important; }
-
-        #water {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: var(--water-height);
-            background-color: #1E90FF; overflow: hidden; transition: background-color 0.5s, opacity 1s;
-        }
-        #water.frozen { background-color: #AFEEEE; }
-        #water.frozen::before, #water.frozen::after { animation-play-state: paused; opacity: 0.7; }
-        #water::before, #water::after {
-            content: ''; position: absolute; width: 200%; height: 100px; left: -50%; top: -50px;
-            background-repeat: repeat-x; background-size: 50% 100px; animation: wave 10s linear infinite;
-        }
-        #water::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M0,50 C25,80 75,20 100,50 L100,100 L0,100 Z' fill='rgba(255,255,255,0.2)'/%3E%3C/svg%3E"); z-index: 10; }
-        #water::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M0,60 C30,40 70,80 100,60 L100,100 L0,100 Z' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E"); animation-direction: reverse; z-index: 9; }
-        @keyframes wave { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-
-        #player {
-            position: absolute; width: var(--player-size); height: var(--player-size); bottom: calc(var(--water-height) - (var(--player-size) / 2)); left: 50%;
-            transform: translateX(-50%); font-size: calc(var(--player-size) * 0.8); text-align: center; line-height: var(--player-size); z-index: 20; transition: left 0.1s linear, bottom 1s;
-        }
-        .item { position: absolute; width: var(--item-size); height: var(--item-size); font-size: calc(var(--item-size) * 0.9); text-align: center; line-height: var(--item-size); user-select: none; z-index: 5; transition: left 0.2s linear; }
+        body { transition: background 1s; }
+        #game-container { position: relative; width: 100%; height: 100%; max-width: 1000px; overflow: hidden; margin: auto; }
+        #player { position: absolute; width: var(--player-size); height: var(--player-size); font-size: calc(var(--player-size) * 0.8); text-align: center; line-height: var(--player-size); z-index: 20; transition: left 0.1s linear, bottom 0.1s linear; }
+        .item { position: absolute; width: var(--item-size); height: var(--item-size); font-size: calc(var(--item-size) * 0.9); text-align: center; line-height: var(--item-size); user-select: none; z-index: 5; }
         .projectile { position: absolute; width: 10px; height: 25px; background-color: #FFD700; border-radius: 5px; z-index: 15; }
+        .hidden { display: none !important; }
+        #ui-container { position: absolute; top: 15px; left: 15px; font-weight: bold; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 100; }
+        #game-over { top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3em; text-align: center; width: 100%; position: absolute; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 100;}
     </style>
 </head>
 <body>
     <div id="game-container">
-        <div id="score">0</div>
-        <div id="level">Nivel: 1</div>
-        <div id="powerup-status" class="hidden"></div>
-        <div id="cash">💰 0</div>
-        <div id="health" class="hidden"></div>
-        <div id="game-over" class="hidden">GAME OVER</div>
-        <div id="instructions">
-            <p>← → para mover</p>
-            <p>Toca para mover en móvil</p>
+        <div id="ui-container">
+            <div id="score">Puntos: 0</div>
+            <div id="cash">Dinero: 0</div>
+            <div id="health"></div>
         </div>
         <div id="player"></div>
-        <div id="water"></div>
-        <button id="test-space-btn" style="position:absolute; top:10px; right:150px; z-index:200; padding: 5px; background: #fff; border: 1px solid #000; cursor: pointer;">Test Space Level</button>
+        <div id="game-over" class="hidden">GAME OVER</div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const ALL_ELEMENTS = {
-                gameContainer: document.getElementById('game-container'),
-                player: document.getElementById('player'),
-                score: document.getElementById('score'),
-                level: document.getElementById('level'),
-                powerupStatus: document.getElementById('powerup-status'),
-                cash: document.getElementById('cash'),
-                water: document.getElementById('water'),
-                health: document.getElementById('health'),
-                gameOver: document.getElementById('game-over'),
-                instructions: document.getElementById('instructions')
-            };
+        class DOMManager {
+            constructor() {
+                this.gameContainer = document.getElementById('game-container');
+                this.player = document.getElementById('player');
+                this.score = document.getElementById('score');
+                this.cash = document.getElementById('cash');
+                this.health = document.getElementById('health');
+                this.gameOver = document.getElementById('game-over');
+            }
+            updateScore(score) { this.score.textContent = `Puntos: ${score}`; }
+            updateCash(cash) { this.cash.textContent = `Dinero: ${cash}`; }
+            updateHealth(health) { this.health.textContent = '❤️'.repeat(health); }
+            setPlayerPosition(x, y) {
+                this.player.style.left = `${x}%`;
+                this.player.style.bottom = `${y}%`;
+            }
+            setPlayerEmoji(emoji) { this.player.textContent = emoji; }
+            setBackground(background) { document.body.style.background = background; }
+            createItemElement(item) {
+                const el = document.createElement('div');
+                el.classList.add('item');
+                el.textContent = item.emoji;
+                el.style.left = `${item.x}%`;
+                el.style.top = `${item.y}%`;
+                this.gameContainer.appendChild(el);
+                return el;
+            }
+            createProjectileElement(p) {
+                const el = document.createElement('div');
+                el.classList.add('projectile');
+                el.style.left = `${p.x}px`;
+                el.style.top = `${p.y}px`;
+                this.gameContainer.appendChild(el);
+                return el;
+            }
+            showGameOver() { this.gameOver.classList.remove('hidden'); }
+            hideUI(elements) {
+                elements.forEach(el => this[el].classList.add('hidden'));
+            }
+            showUI(elements) {
+                elements.forEach(el => this[el].classList.remove('hidden'));
+            }
+        }
 
-            let gameState = {
-                gameMode: 'water', score: 0, cash: 0, currentLevel: 1, currentBoatIndex: 0, playerPosition: 50, playerPositionY: 50, playerHealth: 3, spaceShipLevel: 1,
-                playerSpeed: 2, itemIntervalId: null, gameLoopId: null, survivalScoreId: null, canShoot: true,
-                isMagnetActive: false, magnetTimerId: null, isPlayerSlowed: false, slowTimerId: null,
-                projectiles: [], keysPressed: { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, ' ': false }
-            };
+        class Game {
+            constructor(levels) {
+                this.dom = new DOMManager();
+                this.levels = levels;
+                this.currentLevelIndex = 0;
+                this.gameState = { score: 0, cash: 0, health: 3 };
+                this.keysPressed = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, ' ': false };
+                this.gameLoopId = null;
+                this.itemIntervalId = null;
 
-            const CONSTANTS = {
-                MAGNET_DURATION: 8000, MAGNET_RADIUS_PERCENT: 25, SLOW_DURATION: 7000, SLOW_FACTOR: 0.5, SHOOT_COOLDOWN: 400,
-                BOAT_LEVELS: [ { emoji: '🚤', cashForNext: 100 }, { emoji: '🛥️', cashForNext: 250 }, { emoji: '🛳️', cashForNext: 500 }, { emoji: '⛴️', cashForNext: 1000 } ],
-                LEVEL_CONFIG: { 1: { scoreForNext: 100, itemInterval: 1500, minSpeed: 1, maxSpeed: 3 }, 2: { scoreForNext: 300, itemInterval: 1200, minSpeed: 1.5, maxSpeed: 4 }, 3: { scoreForNext: 600, itemInterval: 900, minSpeed: 2, maxSpeed: 5 }, 4: { scoreForNext: 1000, itemInterval: 700, minSpeed: 2.5, maxSpeed: 6 }, 5: { scoreForNext: 1500, itemInterval: 500, minSpeed: 3, maxSpeed: 7 } }
-            };
+                window.addEventListener('keydown', (e) => { if (this.keysPressed.hasOwnProperty(e.key)) this.keysPressed[e.key] = true; });
+                window.addEventListener('keyup', (e) => { if (this.keysPressed.hasOwnProperty(e.key)) this.keysPressed[e.key] = false; });
+            }
 
-            const levelModules = {
-                water: {
-                    playerEmoji: '🚤',
-                    background: 'linear-gradient(to bottom, #87CEEB 0%, #B2FFFF 80%)',
-                    itemTypes: [ { emoji: '💎', value: 50, name: 'treasure' }, { emoji: '🍎', value: 10, name: 'fruit' }, { emoji: '🍌', value: 10, name: 'fruit' }, { emoji: '💰', value: 0, cash: 50, name: 'cash', chance: 0.18 }, { emoji: '₿', value: 0, cash: 200, name: 'cash', chance: 0.02 }, { emoji: '🗑️', value: -25, name: 'trash' }, { emoji: '👢', value: -10, name: 'trash' }, { emoji: '🧲', value: 0, name: 'powerup', subType: 'magnet', chance: 0.1 }, { emoji: '🧊', value: -5, name: 'trap', subType: 'freeze', chance: 0.05 } ],
-                    config: CONSTANTS.LEVEL_CONFIG,
-                    update: handleMagnetPull
-                },
-                space: {
-                    playerEmoji: '🚀',
-                    background: '#000',
-                    itemTypes: [ { emoji: '☄️', name: 'asteroid', chance: 0.75 }, { emoji: '👽', name: 'alien', chance: 0.1 }, { emoji: '⭐', value: 50, name: 'star', chance: 0.1 }, { emoji: '🔩', name: 'upgrade', chance: 0.05 } ],
-                    config: { minSpeed: 2, maxSpeed: 8, itemInterval: 400 },
-                    update: () => { updateProjectiles(); shoot(); }
-                },
-                earth: {
-                    playerEmoji: '🚗',
-                    background: '#666',
-                    itemTypes: [ { emoji: '💰', cash: 100, name: 'cash', chance: 0.7 }, { emoji: '🚙', value: -200, name: 'obstacle', chance: 0.3 } ],
-                    config: { minSpeed: 2, maxSpeed: 6, itemInterval: 1000 },
-                    update: () => {}
+            start() {
+                this.loadLevel(this.levels[this.currentLevelIndex]);
+                this.gameLoop();
+            }
+
+            loadLevel(LevelClass) {
+                this.currentLevel = new LevelClass(this.gameState, this.dom, this.keysPressed);
+                this.currentLevel.init();
+                this.dom.setBackground(this.currentLevel.background);
+                this.dom.setPlayerEmoji(this.currentLevel.playerEmoji);
+                this.dom.updateScore(this.gameState.score);
+                this.dom.updateCash(this.gameState.cash);
+                this.dom.updateHealth(this.gameState.health);
+
+                clearInterval(this.itemIntervalId);
+                this.itemIntervalId = setInterval(() => this.currentLevel.createItem(), this.currentLevel.itemInterval);
+            }
+
+            gameLoop() {
+                this.currentLevel.update();
+                if (this.currentLevel.checkGoal()) {
+                    this.nextLevel();
                 }
-            };
+                this.gameLoopId = requestAnimationFrame(() => this.gameLoop());
+            }
 
-            function levelUp() {
-                const config = CONSTANTS.LEVEL_CONFIG;
-                if (LevelManager.getCurrentLevel() !== 'water' || !config[gameState.currentLevel] || !config[gameState.currentLevel].scoreForNext) return;
-                if (gameState.score >= config[gameState.currentLevel].scoreForNext) {
-                    gameState.currentLevel++;
-                    ALL_ELEMENTS.level.textContent = `Nivel: ${gameState.currentLevel}`;
-                    clearInterval(gameState.itemIntervalId);
-                    const levelModule = LevelManager.getCurrentLevelModule();
-                    const newConfig = levelModule.config[gameState.currentLevel];
-                    gameState.itemIntervalId = setInterval(createItem, newConfig.itemInterval);
+            nextLevel() {
+                this.currentLevelIndex++;
+                if (this.currentLevelIndex < this.levels.length) {
+                    this.loadLevel(this.levels[this.currentLevelIndex]);
+                } else {
+                    this.gameOver();
+                }
+            }
+            
+            gameOver() {
+                cancelAnimationFrame(this.gameLoopId);
+                clearInterval(this.itemIntervalId);
+                this.dom.showGameOver();
+            }
+        }
+
+        class Level {
+            constructor(gameState, dom, keysPressed) {
+                this.gameState = gameState;
+                this.dom = dom;
+                this.keys = keysPressed;
+                this.items = [];
+                this.projectiles = [];
+                this.player = { x: 50, y: 10, speed: 2 };
+            }
+            init() { 
+                this.gameState.score = 0;
+                this.dom.updateScore(0);
+            }
+            update() { this.updatePlayer(); this.updateItems(); this.updateProjectiles(); }
+            checkGoal() { return false; }
+            
+            updatePlayer() {
+                // Implemented by subclasses
+            }
+
+            createItem() {
+                // Implemented by subclasses
+            }
+
+            updateItems() {
+                this.items.forEach((item, index) => {
+                    item.update();
+                    if (this.checkCollision(item.element)) {
+                        this.onCollision(item);
+                        this.items.splice(index, 1);
+                        item.element.remove();
+                    } else if (item.isOffscreen()) {
+                        this.items.splice(index, 1);
+                        item.element.remove();
+                    }
+                });
+            }
+            
+            updateProjectiles() {
+                this.projectiles.forEach((p, pIndex) => {
+                    p.y -= 15;
+                    p.element.style.top = `${p.y}px`;
+                    if (p.y < 0) {
+                        this.projectiles.splice(pIndex, 1);
+                        p.element.remove();
+                        return;
+                    }
+                    this.items.forEach((item, iIndex) => {
+                        if (item.collidable && this.checkCollision(p.element, item.element)) {
+                            this.projectiles.splice(pIndex, 1);
+                            p.element.remove();
+                            this.items.splice(iIndex, 1);
+                            item.element.remove();
+                            this.gameState.score += item.value || 10;
+                            this.dom.updateScore(this.gameState.score);
+                        }
+                    });
+                });
+            }
+
+            checkCollision(el1, el2 = this.dom.player) {
+                const rect1 = el1.getBoundingClientRect();
+                const rect2 = el2.getBoundingClientRect();
+                return !(rect1.right < rect2.left || rect1.left > rect2.right || rect1.bottom < rect2.top || rect1.top > rect2.bottom);
+            }
+
+            onCollision(item) {
+                if (item.value) this.gameState.score += item.value;
+                if (item.cash) this.gameState.cash += item.cash;
+                this.dom.updateScore(this.gameState.score);
+                this.dom.updateCash(this.gameState.cash);
+            }
+        }
+
+        class WaterLevel extends Level {
+            constructor(gameState, dom, keysPressed) {
+                super(gameState, dom, keysPressed);
+                this.background = 'linear-gradient(to bottom, #87CEEB 0%, #B2FFFF 80%)';
+                this.playerEmoji = '🚤';
+                this.itemInterval = 1500;
+                this.itemTypes = [
+                    { emoji: '💎', value: 50, name: 'treasure' }, { emoji: '🍎', value: 10, name: 'fruit' },
+                    { emoji: '💰', cash: 50, name: 'cash' }, { emoji: '🗑️', value: -25, name: 'trash' }
+                ];
+            }
+            
+            init() {
+                super.init();
+                this.dom.showUI(['score', 'cash']);
+                this.dom.hideUI(['health']);
+                this.player.y = 10;
+            }
+
+            updatePlayer() {
+                if (this.keys.ArrowLeft) this.player.x -= this.player.speed;
+                if (this.keys.ArrowRight) this.player.x += this.player.speed;
+                this.player.x = Math.max(0, Math.min(90, this.player.x));
+                this.dom.setPlayerPosition(this.player.x, this.player.y);
+            }
+
+            createItem() {
+                const itemData = this.itemTypes[Math.floor(Math.random() * this.itemTypes.length)];
+                const item = new Item(itemData);
+                item.element = this.dom.createItemElement(item);
+                this.items.push(item);
+            }
+            
+            checkGoal() {
+                return this.gameState.cash >= 200; // Goal to transition
+            }
+        }
+        
+        class SpaceLevel extends Level {
+            constructor(gameState, dom, keysPressed) {
+                super(gameState, dom, keysPressed);
+                this.background = '#000';
+                this.playerEmoji = '🚀';
+                this.itemInterval = 400;
+                this.canShoot = true;
+                this.shootCooldown = 400;
+                this.itemTypes = [
+                    { emoji: '☄️', name: 'asteroid', collidable: true, value: 10 },
+                    { emoji: '👽', name: 'alien', collidable: true, value: 25 },
+                    { emoji: '⭐', name: 'star', value: 50 }
+                ];
+            }
+
+            init() {
+                super.init();
+                this.dom.showUI(['score', 'health']);
+                this.dom.hideUI(['cash']);
+                this.player.y = 5;
+            }
+
+            updatePlayer() {
+                if (this.keys.ArrowLeft) this.player.x -= this.player.speed;
+                if (this.keys.ArrowRight) this.player.x += this.player.speed;
+                this.player.x = Math.max(0, Math.min(90, this.player.x));
+                this.dom.setPlayerPosition(this.player.x, this.player.y);
+                if (this.keys[' ']) this.shoot();
+            }
+
+            createItem() {
+                const itemData = this.itemTypes[Math.floor(Math.random() * this.itemTypes.length)];
+                const item = new Item(itemData);
+                item.element = this.dom.createItemElement(item);
+                this.items.push(item);
+            }
+
+            shoot() {
+                if (!this.canShoot) return;
+                this.canShoot = false;
+                setTimeout(() => this.canShoot = true, this.shootCooldown);
+                const playerRect = this.dom.player.getBoundingClientRect();
+                const p = { x: playerRect.left + (playerRect.width / 2) - 5, y: playerRect.top };
+                p.element = this.dom.createProjectileElement(p);
+                this.projectiles.push(p);
+            }
+            
+            onCollision(item) {
+                if (item.collidable) {
+                    this.gameState.health--;
+                    this.dom.updateHealth(this.gameState.health);
+                    if (this.gameState.health <= 0) game.gameOver();
+                } else {
+                    super.onCollision(item);
                 }
             }
 
-            const LevelManager = {
-                levelSequence: ['water', 'space', 'earth'],
-                currentLevelIndex: 0,
-                getCurrentLevel() {
-                    return this.levelSequence[this.currentLevelIndex];
-                },
-                getCurrentLevelModule() {
-                    return levelModules[this.getCurrentLevel()];
-                },
-                nextLevel() {
-                    if (this.currentLevelIndex < this.levelSequence.length - 1) {
-                        this.currentLevelIndex++;
-                        return true;
-                    }
-                    return false;
+            checkGoal() {
+                return this.gameState.score >= 500;
+            }
+        }
+
+        class EarthLevel extends Level {
+            constructor(gameState, dom, keysPressed) {
+                super(gameState, dom, keysPressed);
+                this.background = '#666';
+                this.playerEmoji = '🚗';
+                this.itemInterval = 1000;
+                this.itemTypes = [
+                    { emoji: '💰', cash: 100, name: 'cash' },
+                    { emoji: '🚙', value: -200, name: 'obstacle' }
+                ];
+            }
+
+            init() {
+                super.init();
+                this.dom.showUI(['score', 'cash']);
+                this.dom.hideUI(['health']);
+                this.player.x = 10;
+                this.player.y = 50;
+            }
+
+            updatePlayer() {
+                if (this.keys.ArrowUp) this.player.y += this.player.speed;
+                if (this.keys.ArrowDown) this.player.y -= this.player.speed;
+                this.player.y = Math.max(0, Math.min(90, this.player.y));
+                this.dom.setPlayerPosition(this.player.x, this.player.y);
+            }
+
+            createItem() {
+                const itemData = this.itemTypes[Math.floor(Math.random() * this.itemTypes.length)];
+                const item = new Item(itemData, true); // isHorizontal
+                item.element = this.dom.createItemElement(item);
+                this.items.push(item);
+            }
+            
+            checkGoal() {
+                return this.gameState.score >= 1000;
+            }
+        }
+        
+        class Item {
+            constructor(data, isHorizontal = false) {
+                this.x = isHorizontal ? 100 : Math.random() * 95;
+                this.y = isHorizontal ? Math.random() * 90 : -5;
+                this.speed = Math.random() * 3 + 1;
+                this.emoji = data.emoji;
+                this.value = data.value;
+                this.cash = data.cash;
+                this.name = data.name;
+                this.collidable = data.collidable;
+                this.isHorizontal = isHorizontal;
+            }
+
+            update() {
+                if (this.isHorizontal) {
+                    this.x -= this.speed;
+                } else {
+                    this.y += this.speed;
                 }
-            };
+                this.element.style.left = `${this.x}%`;
+                this.element.style.top = `${this.y}%`;
+            }
 
-                        function createItem() {
+            isOffscreen() {
+                return this.y > 100 || this.x < -5;
+            }
+        }
 
-                            const levelModule = LevelManager.getCurrentLevelModule();
+        const game = new Game([WaterLevel, SpaceLevel, EarthLevel]);
+        game.start();
 
-                            const itemData = getRandomItem(levelModule.itemTypes);
-
-                            const itemElement = document.createElement('div');
-
-                            itemElement.classList.add('item');
-
-                            itemElement.dataset.name = itemData.name;
-
-                            if(itemData.subType) itemElement.dataset.subType = itemData.subType;
-
-                            itemElement.textContent = itemData.emoji;
-
-                            const config = (LevelManager.getCurrentLevel() === 'water') ? levelModule.config[gameState.currentLevel] : levelModule.config;
-
-                            const speed = Math.random() * (config.maxSpeed - config.minSpeed) + config.minSpeed;
-
-            
-
-                            if (LevelManager.getCurrentLevel() === 'earth') {
-
-                                itemElement.style.left = '100%';
-
-                                itemElement.style.top = `${Math.random() * 90}%`;
-
-                            } else {
-
-                                itemElement.style.left = `${Math.random() * 95}%`;
-
-                                itemElement.style.top = `-${parseInt(getComputedStyle(itemElement).height)}px`;
-
-                            }
-
-            
-
-                            ALL_ELEMENTS.gameContainer.appendChild(itemElement);
-
-                            moveItem(itemElement, speed, itemData);
-
-                        }
-
-            
-
-                        function moveItem(element, speed, itemData) {
-
-                            if (LevelManager.getCurrentLevel() === 'earth') {
-
-                                let leftPosition = 100;
-
-                                function frame() {
-
-                                    leftPosition -= speed / 2;
-
-                                    element.style.left = `${leftPosition}%`;
-
-                                    if (checkCollision(element)) return;
-
-                                    if (leftPosition < -10) { element.remove(); return; }
-
-                                    requestAnimationFrame(frame);
-
-                                }
-
-                                requestAnimationFrame(frame);
-
-                            } else {
-
-                                let topPosition = element.offsetTop;
-
-                                function frame() {
-
-                                    topPosition += speed;
-
-                                    element.style.top = `${topPosition}px`;
-
-                                    if (checkCollision(element)) return;
-
-                                    if (topPosition > window.innerHeight) { element.remove(); return; }
-
-                                    requestAnimationFrame(frame);
-
-                                }
-
-                                requestAnimationFrame(frame);
-
-                            }
-
-            
-
-                            function checkCollision(el) {
-
-                                const playerRect = ALL_ELEMENTS.player.getBoundingClientRect();
-
-                                const itemRect = el.getBoundingClientRect();
-
-                                if (itemRect.bottom > playerRect.top && itemRect.top < playerRect.bottom && itemRect.right > playerRect.left && itemRect.left < playerRect.right) {
-
-                                    handleCollision(itemData, el);
-
-                                    return true;
-
-                                }
-
-                                return false;
-
-                            }
-
-                        }
-
-            
-
-                        function handleCollision(itemData, itemElement) {
-
-                            itemElement.remove();
-
-                            const gameMode = LevelManager.getCurrentLevel();
-
-            
-
-                            if (gameMode === 'water') {
-
-                                if (itemData.name === 'powerup' && itemData.subType === 'magnet') activateMagnet();
-
-                                else if (itemData.name === 'trap' && itemData.subType === 'freeze') activateSlowDebuff();
-
-                                else if (itemData.name === 'cash') updateCash(itemData.cash);
-
-                                else updateScore(itemData.value);
-
-                            } else if (gameMode === 'earth') {
-
-                                if (itemData.name === 'cash') updateCash(itemData.cash);
-
-                                else if (itemData.name === 'obstacle') updateScore(itemData.value);
-
-                            } else if (gameMode === 'space') {
-
-                                if (itemData.name === 'upgrade') {
-
-                                    if(gameState.spaceShipLevel < 2) gameState.spaceShipLevel++;
-
-                                } else if (itemData.name === 'star') {
-
-                                    updateScoreInSpace(itemData.value);
-
-                                } else if (itemData.name === 'asteroid' || itemData.name === 'alien') {
-
-                                    gameState.playerHealth--;
-
-                                    updateHealthDisplay();
-
-                                    if (gameState.playerHealth <= 0) gameOver();
-
-                                }
-
-                            }
-
-                        }
-
-            
-
-                        function updateScore(change) {
-
-                            const gameMode = LevelManager.getCurrentLevel();
-
-                            if (gameMode === 'water' || gameMode === 'earth') {
-
-                                gameState.score += change;
-
-                                if (gameState.score < 0) gameState.score = 0;
-
-                                ALL_ELEMENTS.score.textContent = gameState.score;
-
-            
-
-                                if (gameMode === 'water' && CONSTANTS.LEVEL_CONFIG[gameState.currentLevel] && gameState.score >= CONSTANTS.LEVEL_CONFIG[gameState.currentLevel].scoreForNext) {
-
-                                    levelUp();
-
-                                } else if (gameMode === 'earth' && gameMode === 'earth' && gameState.score >= 1000) {
-
-                                    gameOver();
-
-                                }
-
-                            }
-
-                        }
-
-            
-
-                        function updateScoreInSpace(points) {
-
-                            const newScore = parseInt(ALL_ELEMENTS.score.textContent) + points;
-
-                            ALL_ELEMENTS.score.textContent = newScore;
-
-                            if (newScore >= 500) {
-
-                                switchToNextLevel();
-
-                            }
-
-                        }
-
-            
-
-                        function updateCash(amount) {
-
-                            gameState.cash += amount;
-
-                            ALL_ELEMENTS.cash.textContent = `💰 ${gameState.cash}`;
-
-                            const boatLevels = CONSTANTS.BOAT_LEVELS;
-
-                            if (LevelManager.getCurrentLevel() === 'water' && gameState.currentBoatIndex < boatLevels.length - 1 && gameState.cash >= boatLevels[gameState.currentBoatIndex].cashForNext) {
-
-                                gameState.currentBoatIndex++;
-
-                                ALL_ELEMENTS.player.textContent = boatLevels[gameState.currentBoatIndex].emoji;
-
-                                if (gameState.currentBoatIndex === boatLevels.length - 1) {
-
-                                    setTimeout(switchToNextLevel, 2000);
-
-                                }
-
-                            }
-
-                        }
-
-            
-
-                                    function switchToNextLevel() {
-
-            
-
-                                        if (!LevelManager.nextLevel()) {
-
-            
-
-                                            gameOver();
-
-            
-
-                                            return;
-
-            
-
-                                        }
-
-            
-
-                                        const levelModule = LevelManager.getCurrentLevelModule();
-
-            
-
-                                        gameState.gameMode = LevelManager.getCurrentLevel();
-
-            
-
-                        
-
-            
-
-                                        document.body.style.background = levelModule.background;
-
-            
-
-                                        if (gameState.gameMode === 'space') document.body.classList.add('space-mode');
-
-            
-
-                                        else document.body.classList.remove('space-mode');
-
-            
-
-                        
-
-            
-
-                                        ALL_ELEMENTS.player.textContent = levelModule.playerEmoji;
-
-            
-
-                                        document.querySelectorAll('.item').forEach(item => item.remove());
-
-            
-
-                                        clearInterval(gameState.itemIntervalId);
-
-            
-
-                                        
-
-            
-
-                                        let interval;
-
-            
-
-                                        if (gameState.gameMode === 'water') {
-
-            
-
-                                            interval = levelModule.config[gameState.currentLevel].itemInterval;
-
-            
-
-                                        } else {
-
-            
-
-                                            interval = levelModule.config.itemInterval;
-
-            
-
-                                        }
-
-            
-
-                                        gameState.itemIntervalId = setInterval(createItem, interval || 1000);
-
-            
-
-                        
-
-            
-
-                                        gameState.score = 0;
-
-            
-
-                                        ALL_ELEMENTS.score.textContent = gameState.score;
-
-            
-
-                        
-
-            
-
-                                        if (gameState.gameMode === 'space') {
-
-            
-
-                                            [ALL_ELEMENTS.level, ALL_ELEMENTS.cash, ALL_ELEMENTS.powerupStatus, ALL_ELEMENTS.water, ALL_ELEMENTS.instructions].forEach(el => el.classList.add('hidden'));
-
-            
-
-                                            ALL_ELEMENTS.health.classList.remove('hidden');
-
-            
-
-                                            updateHealthDisplay();
-
-            
-
-                                            ALL_ELEMENTS.player.style.bottom = '5vh';
-
-            
-
-                                            gameState.survivalScoreId = setInterval(() => updateScoreInSpace(1), 100);
-
-            
-
-                                        } else if (gameState.gameMode === 'earth') {
-
-            
-
-                                            ALL_ELEMENTS.player.style.left = '10%';
-
-            
-
-                                            ALL_ELEMENTS.player.style.transform = 'none';
-
-            
-
-                                            gameState.playerPositionY = 50;
-
-            
-
-                                            ALL_ELEMENTS.player.style.bottom = `${gameState.playerPositionY}%`;
-
-            
-
-                                        }
-
-            
-
-                                    }
-
-            
-
-                        
-
-            
-
-                                    // ... (rest of the functions)
-
-            
-
-                        
-
-            
-
-                                    function init() {
-
-            
-
-                                        const levelModule = LevelManager.getCurrentLevelModule();
-
-            
-
-                                        ALL_ELEMENTS.player.textContent = levelModule.playerEmoji;
-
-            
-
-                                        let interval;
-
-            
-
-                                        if (LevelManager.getCurrentLevel() === 'water') {
-
-            
-
-                                            interval = levelModule.config[gameState.currentLevel].itemInterval;
-
-            
-
-                                        } else {
-
-            
-
-                                            interval = levelModule.config.itemInterval;
-
-            
-
-                                        }
-
-            
-
-                                        gameState.itemIntervalId = setInterval(createItem, interval || 1000);
-
-            
-
-                                        gameLoop();
-
-            
-
-                                    }
-
-            window.addEventListener('keydown', (e) => { 
-                if (gameState.keysPressed.hasOwnProperty(e.key)) gameState.keysPressed[e.key] = true;
-            });
-            window.addEventListener('keyup', (e) => { if (gameState.keysPressed.hasOwnProperty(e.key)) gameState.keysPressed[e.key] = false; });
-
-
-            const testSpaceBtn = document.getElementById('test-space-btn');
-            testSpaceBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent shooting when clicking the button
-                switchToSpaceLevel();
-            });
-
-            ALL_ELEMENTS.gameContainer.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                const touchX = e.touches[0].clientX;
-                const gameRect = ALL_ELEMENTS.gameContainer.getBoundingClientRect();
-                const playerWidth = ALL_ELEMENTS.player.offsetWidth;
-                let newPos = ((touchX - gameRect.left) / gameRect.width) * 100;
-                const playerWidthPercent = (playerWidth / gameRect.width) * 100;
-                gameState.playerPosition = newPos - playerWidthPercent / 2;
-                const clampedPos = Math.max(0, Math.min(100 - playerWidthPercent, gameState.playerPosition));
-                ALL_ELEMENTS.player.style.left = `${clampedPos}%`;
-                ALL_ELEMENTS.player.style.transform = 'translateX(0)';
-            }, { passive: false });
-
-            init();
-        });
     </script>
 </body>
 </html>

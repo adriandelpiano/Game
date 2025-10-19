@@ -41,15 +41,23 @@
             overflow: hidden;
         }
 
-        #score {
+        #score, #level {
             position: absolute;
-            top: 15px;
             left: 15px;
-            font-size: 3em;
             font-weight: bold;
             color: white;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
             z-index: 100;
+        }
+        
+        #score {
+            top: 15px;
+            font-size: 3em;
+        }
+
+        #level {
+            top: 70px; /* Positioned below the score */
+            font-size: 1.5em;
         }
         
         #instructions {
@@ -72,7 +80,6 @@
             overflow: hidden;
         }
 
-        /* Animated waves using pseudo-elements */
         #water::before, #water::after {
             content: '';
             position: absolute;
@@ -132,6 +139,7 @@
 
     <div id="game-container">
         <div id="score">0</div>
+        <div id="level">Nivel: 1</div>
         <div id="instructions">
             <p>← → para mover</p>
             <p>Toca para mover en móvil</p>
@@ -145,10 +153,21 @@
             const gameContainer = document.getElementById('game-container');
             const boat = document.getElementById('boat');
             const scoreElement = document.getElementById('score');
+            const levelElement = document.getElementById('level');
             
             let score = 0;
+            let currentLevel = 1;
             let boatPosition = 50; // in percentage
             const boatSpeed = 2; // percentage per frame
+            let itemIntervalId = null;
+
+            const levelConfig = {
+                1: { nextLevelScore: 100, itemInterval: 1500, minSpeed: 1, maxSpeed: 3 },
+                2: { nextLevelScore: 300, itemInterval: 1200, minSpeed: 1.5, maxSpeed: 4 },
+                3: { nextLevelScore: 600, itemInterval: 900, minSpeed: 2, maxSpeed: 5 },
+                4: { nextLevelScore: 1000, itemInterval: 700, minSpeed: 2.5, maxSpeed: 6 },
+                5: { nextLevelScore: Infinity, itemInterval: 500, minSpeed: 3, maxSpeed: 7 } // Final level
+            };
 
             const keysPressed = {
                 ArrowLeft: false,
@@ -169,7 +188,8 @@
                 itemElement.classList.add('item');
                 itemElement.textContent = itemData.emoji;
                 
-                const speed = Math.random() * 2 + 1; // Speed between 1 and 3
+                const config = levelConfig[currentLevel];
+                const speed = Math.random() * (config.maxSpeed - config.minSpeed) + config.minSpeed;
                 const horizontalPosition = Math.random() * 95; // % from left
 
                 itemElement.style.left = `${horizontalPosition}%`;
@@ -187,7 +207,6 @@
                     topPosition += speed;
                     element.style.top = `${topPosition}px`;
 
-                    // Collision detection
                     const boatRect = boat.getBoundingClientRect();
                     const itemRect = element.getBoundingClientRect();
 
@@ -199,13 +218,12 @@
                     ) {
                         updateScore(value);
                         element.remove();
-                        return; // Stop animation for this item
+                        return;
                     }
 
-                    // If item is off-screen
                     if (topPosition > window.innerHeight) {
                         element.remove();
-                        return; // Stop animation
+                        return;
                     }
                     
                     requestAnimationFrame(frame);
@@ -216,6 +234,21 @@
             function updateScore(change) {
                 score += change;
                 scoreElement.textContent = score;
+
+                if (score >= levelConfig[currentLevel].nextLevelScore) {
+                    levelUp();
+                }
+            }
+
+            function levelUp() {
+                if (levelConfig[currentLevel + 1]) {
+                    currentLevel++;
+                    levelElement.textContent = `Nivel: ${currentLevel}`;
+                    
+                    // Stop old interval and start a new one with the new speed
+                    clearInterval(itemIntervalId);
+                    itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
+                }
             }
 
             function updateBoatPosition() {
@@ -226,12 +259,11 @@
                     boatPosition += boatSpeed;
                 }
 
-                // Clamp boat position to screen bounds
                 const boatWidth = (boat.offsetWidth / window.innerWidth) * 100;
                 boatPosition = Math.max(0, Math.min(100 - boatWidth, boatPosition));
                 
                 boat.style.left = `${boatPosition}%`;
-                boat.style.transform = 'translateX(0)'; // Override initial centering
+                boat.style.transform = 'translateX(0)';
             }
             
             function gameLoop() {
@@ -239,43 +271,31 @@
                 requestAnimationFrame(gameLoop);
             }
 
-            // Keyboard controls
             window.addEventListener('keydown', (e) => {
-                if (e.key in keysPressed) {
-                    keysPressed[e.key] = true;
-                }
+                if (e.key in keysPressed) keysPressed[e.key] = true;
             });
 
             window.addEventListener('keyup', (e) => {
-                if (e.key in keysPressed) {
-                    keysPressed[e.key] = false;
-                }
+                if (e.key in keysPressed) keysPressed[e.key] = false;
             });
 
-            // Touch controls for mobile
             gameContainer.addEventListener('touchmove', (e) => {
-                e.preventDefault(); // Prevent scrolling
+                e.preventDefault();
                 const touchX = e.touches[0].clientX;
                 const gameRect = gameContainer.getBoundingClientRect();
                 const boatWidth = boat.offsetWidth;
                 
-                // Calculate position as a percentage of the game container width
                 let newPos = ((touchX - gameRect.left) / gameRect.width) * 100;
-                
-                // Center boat on finger
                 const boatWidthPercent = (boatWidth / gameRect.width) * 100;
                 boatPosition = newPos - boatWidthPercent / 2;
 
-                // We let the updateBoatPosition function handle clamping and setting the style
-                // to avoid conflicting updates. For instant touch response, we can also set it here:
                 const clampedPos = Math.max(0, Math.min(100 - boatWidthPercent, boatPosition));
                 boat.style.left = `${clampedPos}%`;
                 boat.style.transform = 'translateX(0)';
             }, { passive: false });
 
-
             // Start game
-            setInterval(createItem, 1500); // Create a new item every 1.5 seconds
+            itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
             gameLoop();
         });
     </script>

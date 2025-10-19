@@ -68,6 +68,7 @@
         </div>
         <div id="player"></div>
         <div id="water"></div>
+        <button id="test-space-btn" style="position:absolute; top:10px; right:150px; z-index:200; padding: 5px; background: #fff; border: 1px solid #000; cursor: pointer;">Test Space Level</button>
     </div>
 
     <script>
@@ -220,9 +221,52 @@
                 ALL_ELEMENTS.gameOver.classList.remove('hidden');
             }
 
-            function activateMagnet() { /* ... logic ... */ }
-            function activateSlowDebuff() { /* ... logic ... */ }
-            function handleMagnetPull() { /* ... logic ... */ }
+            function activateMagnet() {
+                gameState.isMagnetActive = true;
+                ALL_ELEMENTS.powerupStatus.textContent = '🧲';
+                ALL_ELEMENTS.powerupStatus.classList.remove('hidden');
+                clearTimeout(gameState.magnetTimerId);
+                gameState.magnetTimerId = setTimeout(() => {
+                    gameState.isMagnetActive = false;
+                    ALL_ELEMENTS.powerupStatus.classList.add('hidden');
+                }, CONSTANTS.MAGNET_DURATION);
+            }
+
+            function activateSlowDebuff() {
+                gameState.isPlayerSlowed = true;
+                ALL_ELEMENTS.water.classList.add('frozen');
+                ALL_ELEMENTS.powerupStatus.textContent = '🥶';
+                ALL_ELEMENTS.powerupStatus.classList.remove('hidden');
+                clearTimeout(gameState.slowTimerId);
+                gameState.slowTimerId = setTimeout(() => {
+                    gameState.isPlayerSlowed = false;
+                    ALL_ELEMENTS.water.classList.remove('frozen');
+                    ALL_ELEMENTS.powerupStatus.classList.add('hidden');
+                }, CONSTANTS.SLOW_DURATION);
+            }
+
+            function handleMagnetPull() {
+                if (!gameState.isMagnetActive) return;
+                const playerRect = ALL_ELEMENTS.player.getBoundingClientRect();
+                const playerCenterX = playerRect.left + playerRect.width / 2;
+                const magnetRadiusPixels = (window.innerWidth * CONSTANTS.MAGNET_RADIUS_PERCENT) / 100;
+
+                document.querySelectorAll('.item').forEach(item => {
+                    const itemName = item.dataset.name;
+                    if (itemName === 'trash' || itemName === 'powerup' || itemName === 'trap') return;
+
+                    const itemRect = item.getBoundingClientRect();
+                    const itemCenterX = itemRect.left + itemRect.width / 2;
+
+                    if (Math.abs(playerCenterX - itemCenterX) < magnetRadiusPixels) {
+                        const currentLeftPercent = parseFloat(item.style.left);
+                        const playerCenterPercent = (playerCenterX / window.innerWidth) * 100;
+                        const pullStrength = 0.1;
+                        const newLeft = currentLeftPercent + (playerCenterPercent - currentLeftPercent) * pullStrength;
+                        item.style.left = `${newLeft}%`;
+                    }
+                });
+            }
 
             function shoot() {
                 if (!gameState.canShoot || gameState.gameMode !== 'space') return;
@@ -290,6 +334,13 @@
             });
             window.addEventListener('keyup', (e) => { if (gameState.keysPressed.hasOwnProperty(e.key)) gameState.keysPressed[e.key] = false; });
             ALL_ELEMENTS.gameContainer.addEventListener('click', shoot);
+
+            const testSpaceBtn = document.getElementById('test-space-btn');
+            testSpaceBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent shooting when clicking the button
+                switchToSpaceLevel();
+            });
+
             ALL_ELEMENTS.gameContainer.addEventListener('touchmove', (e) => {
                 e.preventDefault();
                 const touchX = e.touches[0].clientX;

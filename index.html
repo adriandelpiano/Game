@@ -318,7 +318,10 @@
             function gameLoop() {
                 updatePlayerPosition();
                 if (gameState.gameMode === 'water') handleMagnetPull();
-                else if (gameState.gameMode === 'space') updateProjectiles();
+                else if (gameState.gameMode === 'space') {
+                    updateProjectiles();
+                    shoot();
+                }
                 gameState.gameLoopId = requestAnimationFrame(gameLoop);
             }
 
@@ -330,10 +333,9 @@
 
             window.addEventListener('keydown', (e) => { 
                 if (gameState.keysPressed.hasOwnProperty(e.key)) gameState.keysPressed[e.key] = true;
-                if (e.key === ' ') shoot();
             });
             window.addEventListener('keyup', (e) => { if (gameState.keysPressed.hasOwnProperty(e.key)) gameState.keysPressed[e.key] = false; });
-            ALL_ELEMENTS.gameContainer.addEventListener('click', shoot);
+
 
             const testSpaceBtn = document.getElementById('test-space-btn');
             testSpaceBtn.addEventListener('click', (e) => {

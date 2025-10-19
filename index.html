@@ -113,7 +113,7 @@
             const gameOverElement = document.getElementById('game-over');
             const instructions = document.getElementById('instructions');
 
-            let gameMode = 'water'; // 'water' or 'space'
+            let gameMode = 'water';
             let score = 0, cash = 0, currentLevel = 1, currentBoatIndex = 0, playerPosition = 50, playerHealth = 3;
             const playerSpeed = 2;
             let itemIntervalId = null, gameLoopId = null, survivalScoreId = null;
@@ -143,7 +143,7 @@
 
             const waterItemTypes = [
                 { emoji: '💎', value: 50, name: 'treasure' }, { emoji: '🍎', value: 10, name: 'fruit' },
-                { emoji: '🍌', value: 10, name: 'fruit' }, { emoji: '💰', value: 0, cash: 25, name: 'cash', chance: 0.2 },
+                { emoji: '🍌', value: 10, name: 'fruit' }, { emoji: '💰', value: 0, cash: 50, name: 'cash', chance: 0.2 },
                 { emoji: '🗑️', value: -25, name: 'trash' }, { emoji: '👢', value: -10, name: 'trash' },
                 { emoji: '🧲', value: 0, name: 'powerup', subType: 'magnet', chance: 0.1 },
                 { emoji: '🧊', value: -5, name: 'trap', subType: 'freeze', chance: 0.05 }
@@ -235,11 +235,13 @@
             }
 
             function levelUp() {
-                if (gameMode !== 'water' || !levelConfig[currentLevel + 1]) return;
-                currentLevel++;
-                levelElement.textContent = `Nivel: ${currentLevel}`;
-                clearInterval(itemIntervalId);
-                itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
+                if (gameMode !== 'water' || !levelConfig[currentLevel] || !levelConfig[currentLevel].scoreForNext) return;
+                if (score >= levelConfig[currentLevel].scoreForNext) {
+                    currentLevel++;
+                    levelElement.textContent = `Nivel: ${currentLevel}`;
+                    clearInterval(itemIntervalId);
+                    itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
+                }
             }
 
             function switchToSpaceLevel() {
@@ -247,6 +249,7 @@
                 document.body.classList.add('space-mode');
                 [levelElement, cashElement, powerupStatusElement, waterElement, instructions].forEach(el => el.classList.add('hidden'));
                 healthElement.classList.remove('hidden');
+                scoreElement.textContent = '0'; // Reset score for survival points
                 updateHealthDisplay();
                 player.textContent = '🚀';
                 player.style.bottom = '5vh';
@@ -332,8 +335,8 @@
                 gameLoop();
             }
 
-            // Event Listeners and other functions (activateMagnet, activateSlowDebuff, handleMagnetPull) would be here, simplified for brevity
-            // ... (Assume they are correctly implemented as in previous steps)
+            window.addEventListener('keydown', (e) => { if (keysPressed.hasOwnProperty(e.key)) keysPressed[e.key] = true; });
+            window.addEventListener('keyup', (e) => { if (keysPressed.hasOwnProperty(e.key)) keysPressed[e.key] = false; });
 
             gameContainer.addEventListener('touchmove', (e) => {
                 e.preventDefault();
@@ -350,9 +353,6 @@
                 player.style.left = `${clampedPos}%`;
                 player.style.transform = 'translateX(0)';
             }, { passive: false });
-
-            window.addEventListener('keydown', (e) => { if (keysPressed.hasOwnProperty(e.key)) keysPressed[e.key] = true; });
-            window.addEventListener('keyup', (e) => { if (keysPressed.hasOwnProperty(e.key)) keysPressed[e.key] = false; });
 
             init();
         });

@@ -93,6 +93,12 @@
                 projectiles: [], keysPressed: { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, ' ': false }
             };
 
+            const CONSTANTS = {
+                MAGNET_DURATION: 8000, MAGNET_RADIUS_PERCENT: 25, SLOW_DURATION: 7000, SLOW_FACTOR: 0.5, SHOOT_COOLDOWN: 400,
+                BOAT_LEVELS: [ { emoji: '🚤', cashForNext: 100 }, { emoji: '🛥️', cashForNext: 250 }, { emoji: '🛳️', cashForNext: 500 }, { emoji: '⛴️', cashForNext: 1000 } ],
+                LEVEL_CONFIG: { 1: { scoreForNext: 100, itemInterval: 1500, minSpeed: 1, maxSpeed: 3 }, 2: { scoreForNext: 300, itemInterval: 1200, minSpeed: 1.5, maxSpeed: 4 }, 3: { scoreForNext: 600, itemInterval: 900, minSpeed: 2, maxSpeed: 5 }, 4: { scoreForNext: 1000, itemInterval: 700, minSpeed: 2.5, maxSpeed: 6 }, 5: { scoreForNext: 1500, itemInterval: 500, minSpeed: 3, maxSpeed: 7 } }
+            };
+
             const levelModules = {
                 water: {
                     playerEmoji: '🚤',
@@ -105,17 +111,30 @@
                     playerEmoji: '🚀',
                     background: '#000',
                     itemTypes: [ { emoji: '☄️', name: 'asteroid', chance: 0.75 }, { emoji: '👽', name: 'alien', chance: 0.1 }, { emoji: '⭐', value: 50, name: 'star', chance: 0.1 }, { emoji: '🔩', name: 'upgrade', chance: 0.05 } ],
-                    config: { minSpeed: 2, maxSpeed: 8 },
+                    config: { minSpeed: 2, maxSpeed: 8, itemInterval: 400 },
                     update: () => { updateProjectiles(); shoot(); }
                 },
                 earth: {
                     playerEmoji: '🚗',
                     background: '#666',
                     itemTypes: [ { emoji: '💰', cash: 100, name: 'cash', chance: 0.7 }, { emoji: '🚙', value: -200, name: 'obstacle', chance: 0.3 } ],
-                    config: { minSpeed: 2, maxSpeed: 6 },
+                    config: { minSpeed: 2, maxSpeed: 6, itemInterval: 1000 },
                     update: () => {}
                 }
             };
+
+            function levelUp() {
+                const config = CONSTANTS.LEVEL_CONFIG;
+                if (LevelManager.getCurrentLevel() !== 'water' || !config[gameState.currentLevel] || !config[gameState.currentLevel].scoreForNext) return;
+                if (gameState.score >= config[gameState.currentLevel].scoreForNext) {
+                    gameState.currentLevel++;
+                    ALL_ELEMENTS.level.textContent = `Nivel: ${gameState.currentLevel}`;
+                    clearInterval(gameState.itemIntervalId);
+                    const levelModule = LevelManager.getCurrentLevelModule();
+                    const newConfig = levelModule.config[gameState.currentLevel];
+                    gameState.itemIntervalId = setInterval(createItem, newConfig.itemInterval);
+                }
+            }
 
             const LevelManager = {
                 levelSequence: ['water', 'space', 'earth'],
@@ -371,186 +390,223 @@
 
             
 
-                        function switchToNextLevel() {
-
-                            if (!LevelManager.nextLevel()) {
-
-                                gameOver();
-
-                                return;
-
-                            }
-
-                            const levelModule = LevelManager.getCurrentLevelModule();
-
-                            gameState.gameMode = LevelManager.getCurrentLevel();
+                                    function switchToNextLevel() {
 
             
 
-                            document.body.style.background = levelModule.background;
-
-                            if (gameState.gameMode === 'space') document.body.classList.add('space-mode');
-
-                            else document.body.classList.remove('space-mode');
+                                        if (!LevelManager.nextLevel()) {
 
             
 
-                            ALL_ELEMENTS.player.textContent = levelModule.playerEmoji;
-
-                            document.querySelectorAll('.item').forEach(item => item.remove());
-
-                            clearInterval(gameState.itemIntervalId);
-
-                            const config = (gameState.gameMode === 'water') ? levelModule.config[gameState.currentLevel] : levelModule.config;
-
-                            gameState.itemIntervalId = setInterval(createItem, config.itemInterval || 1000);
-
-                            gameState.score = 0;
-
-                            ALL_ELEMENTS.score.textContent = gameState.score;
+                                            gameOver();
 
             
 
-                            if (gameState.gameMode === 'space') {
+                                            return;
 
-                                [ALL_ELEMENTS.level, ALL_ELEMENTS.cash, ALL_ELEMENTS.powerupStatus, ALL_ELEMENTS.water, ALL_ELEMENTS.instructions].forEach(el => el.classList.add('hidden'));
-
-                                ALL_ELEMENTS.health.classList.remove('hidden');
-
-                                updateHealthDisplay();
-
-                                ALL_ELEMENTS.player.style.bottom = '5vh';
-
-                                gameState.survivalScoreId = setInterval(() => updateScoreInSpace(1), 100);
-
-                            } else if (gameState.gameMode === 'earth') {
-
-                                ALL_ELEMENTS.player.style.left = '10%';
-
-                                ALL_ELEMENTS.player.style.transform = 'none';
-
-                                gameState.playerPositionY = 50;
-
-                                ALL_ELEMENTS.player.style.bottom = `${gameState.playerPositionY}%`;
-
-                            }
-
-                        }
-
-            function updateHealthDisplay() { ALL_ELEMENTS.health.textContent = '❤️'.repeat(gameState.playerHealth); }
-
-            function gameOver() {
-                clearInterval(gameState.itemIntervalId); clearInterval(gameState.survivalScoreId); cancelAnimationFrame(gameState.gameLoopId);
-                ALL_ELEMENTS.gameOver.classList.remove('hidden');
-            }
-
-            function activateMagnet() {
-                gameState.isMagnetActive = true;
-                ALL_ELEMENTS.powerupStatus.textContent = '🧲';
-                ALL_ELEMENTS.powerupStatus.classList.remove('hidden');
-                clearTimeout(gameState.magnetTimerId);
-                gameState.magnetTimerId = setTimeout(() => {
-                    gameState.isMagnetActive = false;
-                    ALL_ELEMENTS.powerupStatus.classList.add('hidden');
-                }, CONSTANTS.MAGNET_DURATION);
-            }
-
-            function activateSlowDebuff() {
-                gameState.isPlayerSlowed = true;
-                ALL_ELEMENTS.water.classList.add('frozen');
-                ALL_ELEMENTS.powerupStatus.textContent = '🥶';
-                ALL_ELEMENTS.powerupStatus.classList.remove('hidden');
-                clearTimeout(gameState.slowTimerId);
-                gameState.slowTimerId = setTimeout(() => {
-                    gameState.isPlayerSlowed = false;
-                    ALL_ELEMENTS.water.classList.remove('frozen');
-                    ALL_ELEMENTS.powerupStatus.classList.add('hidden');
-                }, CONSTANTS.SLOW_DURATION);
-            }
-
-            function handleMagnetPull() {
-                if (!gameState.isMagnetActive) return;
-                const playerRect = ALL_ELEMENTS.player.getBoundingClientRect();
-                const playerCenterX = playerRect.left + playerRect.width / 2;
-                const magnetRadiusPixels = (window.innerWidth * CONSTANTS.MAGNET_RADIUS_PERCENT) / 100;
-
-                document.querySelectorAll('.item').forEach(item => {
-                    const itemName = item.dataset.name;
-                    if (itemName === 'trash' || itemName === 'powerup' || itemName === 'trap') return;
-
-                    const itemRect = item.getBoundingClientRect();
-                    const itemCenterX = itemRect.left + itemRect.width / 2;
-
-                    if (Math.abs(playerCenterX - itemCenterX) < magnetRadiusPixels) {
-                        const currentLeftPercent = parseFloat(item.style.left);
-                        const playerCenterPercent = (playerCenterX / window.innerWidth) * 100;
-                        const pullStrength = 0.1;
-                        const newLeft = currentLeftPercent + (playerCenterPercent - currentLeftPercent) * pullStrength;
-                        item.style.left = `${newLeft}%`;
-                    }
-                });
-            }
-
-            function shoot() {
-                if (!gameState.canShoot || gameState.gameMode !== 'space') return;
-                gameState.canShoot = false;
-                setTimeout(() => gameState.canShoot = true, CONSTANTS.SHOOT_COOLDOWN);
-                const playerRect = ALL_ELEMENTS.player.getBoundingClientRect();
-                const offsets = (gameState.spaceShipLevel > 1) ? [-15, 15] : [0];
-                offsets.forEach(offset => {
-                    const projectile = document.createElement('div');
-                    projectile.classList.add('projectile');
-                    projectile.style.left = `${playerRect.left + (playerRect.width / 2) - 5 + offset}px`;
-                    projectile.style.top = `${playerRect.top}px`;
-                    ALL_ELEMENTS.gameContainer.appendChild(projectile);
-                    gameState.projectiles.push(projectile);
-                });
-            }
-
-            function updateProjectiles() {
-                gameState.projectiles.forEach((p, index) => {
-                    p.style.top = `${p.offsetTop - 15}px`;
-                    if (p.offsetTop < 0) {
-                        p.remove();
-                        gameState.projectiles.splice(index, 1);
-                        return;
-                    }
-                    document.querySelectorAll('.item[data-name="asteroid"], .item[data-name="alien"]').forEach(enemy => {
-                        const pRect = p.getBoundingClientRect();
-                        const eRect = enemy.getBoundingClientRect();
-                        if (pRect.bottom > eRect.top && pRect.top < eRect.bottom && pRect.right > eRect.left && pRect.left < eRect.right) {
-                            p.remove();
-                            gameState.projectiles.splice(index, 1);
-                            enemy.remove();
-                            updateScoreInSpace(enemy.dataset.name === 'alien' ? 25 : 10);
-                        }
-                    });
-                });
-            }
-
-            function updatePlayerPosition() {
-                const currentSpeed = gameState.isPlayerSlowed ? gameState.playerSpeed * CONSTANTS.SLOW_FACTOR : gameState.playerSpeed;
-                if (gameState.keysPressed.ArrowLeft) gameState.playerPosition -= currentSpeed;
-                if (gameState.keysPressed.ArrowRight) gameState.playerPosition += currentSpeed;
-                const playerWidth = (ALL_ELEMENTS.player.offsetWidth / window.innerWidth) * 100;
-                gameState.playerPosition = Math.max(0, Math.min(100 - playerWidth, gameState.playerPosition));
-                ALL_ELEMENTS.player.style.left = `${gameState.playerPosition}%`;
-                ALL_ELEMENTS.player.style.transform = 'translateX(0)';
-            }
             
-            function gameLoop() {
-                updatePlayerPosition();
-                LevelManager.getCurrentLevelModule().update();
-                gameState.gameLoopId = requestAnimationFrame(gameLoop);
-            }
 
-            function init() {
-                const levelModule = LevelManager.getCurrentLevelModule();
-                ALL_ELEMENTS.player.textContent = levelModule.playerEmoji;
-                const config = (LevelManager.getCurrentLevel() === 'water') ? levelModule.config[gameState.currentLevel] : levelModule.config;
-                gameState.itemIntervalId = setInterval(createItem, config.itemInterval || 1000);
-                gameLoop();
-            }
+                                        }
+
+            
+
+                                        const levelModule = LevelManager.getCurrentLevelModule();
+
+            
+
+                                        gameState.gameMode = LevelManager.getCurrentLevel();
+
+            
+
+                        
+
+            
+
+                                        document.body.style.background = levelModule.background;
+
+            
+
+                                        if (gameState.gameMode === 'space') document.body.classList.add('space-mode');
+
+            
+
+                                        else document.body.classList.remove('space-mode');
+
+            
+
+                        
+
+            
+
+                                        ALL_ELEMENTS.player.textContent = levelModule.playerEmoji;
+
+            
+
+                                        document.querySelectorAll('.item').forEach(item => item.remove());
+
+            
+
+                                        clearInterval(gameState.itemIntervalId);
+
+            
+
+                                        
+
+            
+
+                                        let interval;
+
+            
+
+                                        if (gameState.gameMode === 'water') {
+
+            
+
+                                            interval = levelModule.config[gameState.currentLevel].itemInterval;
+
+            
+
+                                        } else {
+
+            
+
+                                            interval = levelModule.config.itemInterval;
+
+            
+
+                                        }
+
+            
+
+                                        gameState.itemIntervalId = setInterval(createItem, interval || 1000);
+
+            
+
+                        
+
+            
+
+                                        gameState.score = 0;
+
+            
+
+                                        ALL_ELEMENTS.score.textContent = gameState.score;
+
+            
+
+                        
+
+            
+
+                                        if (gameState.gameMode === 'space') {
+
+            
+
+                                            [ALL_ELEMENTS.level, ALL_ELEMENTS.cash, ALL_ELEMENTS.powerupStatus, ALL_ELEMENTS.water, ALL_ELEMENTS.instructions].forEach(el => el.classList.add('hidden'));
+
+            
+
+                                            ALL_ELEMENTS.health.classList.remove('hidden');
+
+            
+
+                                            updateHealthDisplay();
+
+            
+
+                                            ALL_ELEMENTS.player.style.bottom = '5vh';
+
+            
+
+                                            gameState.survivalScoreId = setInterval(() => updateScoreInSpace(1), 100);
+
+            
+
+                                        } else if (gameState.gameMode === 'earth') {
+
+            
+
+                                            ALL_ELEMENTS.player.style.left = '10%';
+
+            
+
+                                            ALL_ELEMENTS.player.style.transform = 'none';
+
+            
+
+                                            gameState.playerPositionY = 50;
+
+            
+
+                                            ALL_ELEMENTS.player.style.bottom = `${gameState.playerPositionY}%`;
+
+            
+
+                                        }
+
+            
+
+                                    }
+
+            
+
+                        
+
+            
+
+                                    // ... (rest of the functions)
+
+            
+
+                        
+
+            
+
+                                    function init() {
+
+            
+
+                                        const levelModule = LevelManager.getCurrentLevelModule();
+
+            
+
+                                        ALL_ELEMENTS.player.textContent = levelModule.playerEmoji;
+
+            
+
+                                        let interval;
+
+            
+
+                                        if (LevelManager.getCurrentLevel() === 'water') {
+
+            
+
+                                            interval = levelModule.config[gameState.currentLevel].itemInterval;
+
+            
+
+                                        } else {
+
+            
+
+                                            interval = levelModule.config.itemInterval;
+
+            
+
+                                        }
+
+            
+
+                                        gameState.itemIntervalId = setInterval(createItem, interval || 1000);
+
+            
+
+                                        gameLoop();
+
+            
+
+                                    }
 
             window.addEventListener('keydown', (e) => { 
                 if (gameState.keysPressed.hasOwnProperty(e.key)) gameState.keysPressed[e.key] = true;

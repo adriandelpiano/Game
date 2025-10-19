@@ -92,6 +92,16 @@
             height: var(--water-height);
             background-color: #1E90FF;
             overflow: hidden;
+            transition: background-color 0.5s;
+        }
+
+        #water.frozen {
+            background-color: #AFEEEE; /* PaleTurquoise */
+        }
+
+        #water.frozen::before, #water.frozen::after {
+            animation-play-state: paused;
+            opacity: 0.7;
         }
 
         #water::before, #water::after {
@@ -155,7 +165,7 @@
     <div id="game-container">
         <div id="score">0</div>
         <div id="level">Nivel: 1</div>
-        <div id="powerup-status" class="hidden">🧲</div>
+        <div id="powerup-status" class="hidden"></div>
         <div id="cash">💰 0</div>
         <div id="instructions">
             <p>← → para mover</p>
@@ -173,19 +183,19 @@
             const levelElement = document.getElementById('level');
             const powerupStatusElement = document.getElementById('powerup-status');
             const cashElement = document.getElementById('cash');
+            const waterElement = document.getElementById('water');
             
-            let score = 0;
-            let cash = 0;
-            let currentLevel = 1;
-            let currentBoatIndex = 0;
-            let boatPosition = 50;
+            let score = 0, cash = 0, currentLevel = 1, currentBoatIndex = 0, boatPosition = 50;
             const boatSpeed = 2;
             let itemIntervalId = null;
 
-            let isMagnetActive = false;
-            let magnetTimerId = null;
+            let isMagnetActive = false, magnetTimerId = null;
             const MAGNET_DURATION = 8000;
             const MAGNET_RADIUS_PERCENT = 25;
+
+            let isBoatSlowed = false, slowTimerId = null;
+            const SLOW_DURATION = 7000;
+            const SLOW_FACTOR = 0.5;
 
             const boatLevels = [
                 { emoji: '🚤', cashForNext: 100 },
@@ -211,27 +221,34 @@
                 { emoji: '💰', value: 0, cash: 25, name: 'cash', chance: 0.2 },
                 { emoji: '🗑️', value: -25, name: 'trash' },
                 { emoji: '👢', value: -10, name: 'trash' },
-                { emoji: '🧲', value: 0, name: 'powerup', chance: 0.1 }
+                { emoji: '🧲', value: 0, name: 'powerup', subType: 'magnet', chance: 0.1 },
+                { emoji: '🧊', value: -5, name: 'trap', subType: 'freeze', chance: 0.15 }
             ];
 
             function createItem() {
                 let itemData;
                 const rand = Math.random();
-                const powerupChance = itemTypes.find(t => t.name === 'powerup').chance || 0;
-                const cashChance = itemTypes.find(t => t.name === 'cash').chance || 0;
+                let cumulativeChance = 0;
+                const itemsWithChance = itemTypes.filter(t => t.chance);
+                const regularItems = itemTypes.filter(t => !t.chance);
 
-                if (rand < powerupChance) {
-                    itemData = itemTypes.find(t => t.name === 'powerup');
-                } else if (rand < powerupChance + cashChance) {
-                    itemData = itemTypes.find(t => t.name === 'cash');
-                } else {
-                    const regularItems = itemTypes.filter(t => t.name !== 'powerup' && t.name !== 'cash');
+                let chosen = false;
+                for (const item of itemsWithChance) {
+                    cumulativeChance += item.chance;
+                    if (rand < cumulativeChance) {
+                        itemData = item;
+                        chosen = true;
+                        break;
+                    }
+                }
+                if (!chosen) {
                     itemData = regularItems[Math.floor(Math.random() * regularItems.length)];
                 }
 
                 const itemElement = document.createElement('div');
                 itemElement.classList.add('item');
                 itemElement.dataset.name = itemData.name;
+                if(itemData.subType) itemElement.dataset.subType = itemData.subType;
                 itemElement.textContent = itemData.emoji;
                 
                 const config = levelConfig[currentLevel];
@@ -257,7 +274,8 @@
                     const itemRect = element.getBoundingClientRect();
 
                     if (itemRect.bottom > boatRect.top && itemRect.top < boatRect.bottom && itemRect.right > boatRect.left && itemRect.left < boatRect.right) {
-                        if (itemData.name === 'powerup') activateMagnet();
+                        if (itemData.name === 'powerup' && itemData.subType === 'magnet') activateMagnet();
+                        else if (itemData.name === 'trap' && itemData.subType === 'freeze') activateSlowDebuff();
                         else if (itemData.name === 'cash') updateCash(itemData.cash);
                         else updateScore(itemData.value);
                         
@@ -277,21 +295,15 @@
 
             function updateScore(change) {
                 score += change;
+                if (score < 0) score = 0;
                 scoreElement.textContent = score;
-                if (score < 0) score = 0; // Prevent score from going negative
-
-                if (score >= levelConfig[currentLevel].nextLevelScore) {
-                    levelUp();
-                }
+                if (score >= levelConfig[currentLevel].nextLevelScore) levelUp();
             }
 
             function updateCash(amount) {
                 cash += amount;
                 cashElement.textContent = `💰 ${cash}`;
-
-                if (cash >= boatLevels[currentBoatIndex].cashForNext) {
-                    upgradeBoat();
-                }
+                if (cash >= boatLevels[currentBoatIndex].cashForNext) upgradeBoat();
             }
 
             function upgradeBoat() {
@@ -303,12 +315,26 @@
 
             function activateMagnet() {
                 isMagnetActive = true;
+                powerupStatusElement.textContent = '🧲';
                 powerupStatusElement.classList.remove('hidden');
                 clearTimeout(magnetTimerId);
                 magnetTimerId = setTimeout(() => {
                     isMagnetActive = false;
                     powerupStatusElement.classList.add('hidden');
                 }, MAGNET_DURATION);
+            }
+
+            function activateSlowDebuff() {
+                isBoatSlowed = true;
+                waterElement.classList.add('frozen');
+                powerupStatusElement.textContent = '🥶';
+                powerupStatusElement.classList.remove('hidden');
+                clearTimeout(slowTimerId);
+                slowTimerId = setTimeout(() => {
+                    isBoatSlowed = false;
+                    waterElement.classList.remove('frozen');
+                    powerupStatusElement.classList.add('hidden');
+                }, SLOW_DURATION);
             }
 
             function levelUp() {
@@ -322,14 +348,13 @@
 
             function handleMagnetPull() {
                 if (!isMagnetActive) return;
-
                 const boatRect = boat.getBoundingClientRect();
                 const boatCenterX = boatRect.left + boatRect.width / 2;
                 const magnetRadiusPixels = (window.innerWidth * MAGNET_RADIUS_PERCENT) / 100;
 
                 document.querySelectorAll('.item').forEach(item => {
                     const itemName = item.dataset.name;
-                    if (itemName === 'trash' || itemName === 'powerup') return;
+                    if (itemName === 'trash' || itemName === 'powerup' || itemName === 'trap') return;
 
                     const itemRect = item.getBoundingClientRect();
                     const itemCenterX = itemRect.left + itemRect.width / 2;
@@ -345,12 +370,11 @@
             }
 
             function updateBoatPosition() {
-                if (keysPressed.ArrowLeft) boatPosition -= boatSpeed;
-                if (keysPressed.ArrowRight) boatPosition += boatSpeed;
-
+                const currentSpeed = isBoatSlowed ? boatSpeed * SLOW_FACTOR : boatSpeed;
+                if (keysPressed.ArrowLeft) boatPosition -= currentSpeed;
+                if (keysPressed.ArrowRight) boatPosition += currentSpeed;
                 const boatWidth = (boat.offsetWidth / window.innerWidth) * 100;
                 boatPosition = Math.max(0, Math.min(100 - boatWidth, boatPosition));
-                
                 boat.style.left = `${boatPosition}%`;
                 boat.style.transform = 'translateX(0)';
             }
@@ -375,11 +399,9 @@
                 const touchX = e.touches[0].clientX;
                 const gameRect = gameContainer.getBoundingClientRect();
                 const boatWidth = boat.offsetWidth;
-                
                 let newPos = ((touchX - gameRect.left) / gameRect.width) * 100;
                 const boatWidthPercent = (boatWidth / gameRect.width) * 100;
                 boatPosition = newPos - boatWidthPercent / 2;
-
                 const clampedPos = Math.max(0, Math.min(100 - boatWidthPercent, boatPosition));
                 boat.style.left = `${clampedPos}%`;
                 boat.style.transform = 'translateX(0)';

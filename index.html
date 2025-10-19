@@ -263,8 +263,52 @@
                 gameOverElement.classList.remove('hidden');
             }
 
-            function activateMagnet() { /* ... as before ... */ }
-            function activateSlowDebuff() { /* ... as before ... */ }
+            function activateMagnet() {
+                isMagnetActive = true;
+                powerupStatusElement.textContent = '🧲';
+                powerupStatusElement.classList.remove('hidden');
+                clearTimeout(magnetTimerId);
+                magnetTimerId = setTimeout(() => {
+                    isMagnetActive = false;
+                    powerupStatusElement.classList.add('hidden');
+                }, MAGNET_DURATION);
+            }
+
+            function activateSlowDebuff() {
+                isPlayerSlowed = true;
+                waterElement.classList.add('frozen');
+                powerupStatusElement.textContent = '🥶';
+                powerupStatusElement.classList.remove('hidden');
+                clearTimeout(slowTimerId);
+                slowTimerId = setTimeout(() => {
+                    isPlayerSlowed = false;
+                    waterElement.classList.remove('frozen');
+                    powerupStatusElement.classList.add('hidden');
+                }, SLOW_DURATION);
+            }
+
+            function handleMagnetPull() {
+                if (!isMagnetActive) return;
+                const playerRect = player.getBoundingClientRect();
+                const playerCenterX = playerRect.left + playerRect.width / 2;
+                const magnetRadiusPixels = (window.innerWidth * MAGNET_RADIUS_PERCENT) / 100;
+
+                document.querySelectorAll('.item').forEach(item => {
+                    const itemName = item.dataset.name;
+                    if (itemName === 'trash' || itemName === 'powerup' || itemName === 'trap') return;
+
+                    const itemRect = item.getBoundingClientRect();
+                    const itemCenterX = itemRect.left + itemRect.width / 2;
+
+                    if (Math.abs(playerCenterX - itemCenterX) < magnetRadiusPixels) {
+                        const currentLeftPercent = parseFloat(item.style.left);
+                        const playerCenterPercent = (playerCenterX / window.innerWidth) * 100;
+                        const pullStrength = 0.1;
+                        const newLeft = currentLeftPercent + (playerCenterPercent - currentLeftPercent) * pullStrength;
+                        item.style.left = `${newLeft}%`;
+                    }
+                });
+            }
 
             function updatePlayerPosition() {
                 const currentSpeed = isPlayerSlowed ? playerSpeed * SLOW_FACTOR : playerSpeed;
@@ -306,6 +350,9 @@
                 player.style.left = `${clampedPos}%`;
                 player.style.transform = 'translateX(0)';
             }, { passive: false });
+
+            window.addEventListener('keydown', (e) => { if (keysPressed.hasOwnProperty(e.key)) keysPressed[e.key] = true; });
+            window.addEventListener('keyup', (e) => { if (keysPressed.hasOwnProperty(e.key)) keysPressed[e.key] = false; });
 
             init();
         });

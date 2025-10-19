@@ -98,7 +98,7 @@
                 BOAT_LEVELS: [ { emoji: '🚤', cashForNext: 100 }, { emoji: '🛥️', cashForNext: 250 }, { emoji: '🛳️', cashForNext: 500 }, { emoji: '⛴️', cashForNext: 1000 } ],
                 LEVEL_CONFIG: { 1: { scoreForNext: 100, itemInterval: 1500, minSpeed: 1, maxSpeed: 3 }, 2: { scoreForNext: 300, itemInterval: 1200, minSpeed: 1.5, maxSpeed: 4 }, 3: { scoreForNext: 600, itemInterval: 900, minSpeed: 2, maxSpeed: 5 }, 4: { scoreForNext: 1000, itemInterval: 700, minSpeed: 2.5, maxSpeed: 6 }, 5: { scoreForNext: 1500, itemInterval: 500, minSpeed: 3, maxSpeed: 7 } },
                 WATER_ITEM_TYPES: [ { emoji: '💎', value: 50, name: 'treasure' }, { emoji: '🍎', value: 10, name: 'fruit' }, { emoji: '🍌', value: 10, name: 'fruit' }, { emoji: '💰', value: 0, cash: 50, name: 'cash', chance: 0.2 }, { emoji: '🗑️', value: -25, name: 'trash' }, { emoji: '👢', value: -10, name: 'trash' }, { emoji: '🧲', value: 0, name: 'powerup', subType: 'magnet', chance: 0.1 }, { emoji: '🧊', value: -5, name: 'trap', subType: 'freeze', chance: 0.05 } ],
-                SPACE_ITEM_TYPES: [ { emoji: '☄️', name: 'asteroid', chance: 0.95 }, { emoji: '🔩', name: 'upgrade', chance: 0.05 } ]
+                SPACE_ITEM_TYPES: [ { emoji: '☄️', name: 'asteroid', chance: 0.85 }, { emoji: '👽', name: 'alien', chance: 0.1 }, { emoji: '🔩', name: 'upgrade', chance: 0.05 } ]
             };
 
             function createItem() {
@@ -155,7 +155,7 @@
                 } else if (gameState.gameMode === 'space') {
                     if (itemData.name === 'upgrade') {
                         if(gameState.spaceShipLevel < 2) gameState.spaceShipLevel++;
-                    } else {
+                    } else if (itemData.name === 'asteroid' || itemData.name === 'alien') {
                         gameState.playerHealth--;
                         updateHealthDisplay();
                         if (gameState.playerHealth <= 0) gameOver();
@@ -292,14 +292,14 @@
                         gameState.projectiles.splice(index, 1);
                         return;
                     }
-                    document.querySelectorAll('.item[data-name="asteroid"]').forEach(asteroid => {
+                    document.querySelectorAll('.item[data-name="asteroid"], .item[data-name="alien"]').forEach(enemy => {
                         const pRect = p.getBoundingClientRect();
-                        const aRect = asteroid.getBoundingClientRect();
-                        if (pRect.bottom > aRect.top && pRect.top < aRect.bottom && pRect.right > aRect.left && pRect.left < aRect.right) {
+                        const eRect = enemy.getBoundingClientRect();
+                        if (pRect.bottom > eRect.top && pRect.top < eRect.bottom && pRect.right > eRect.left && pRect.left < eRect.right) {
                             p.remove();
                             gameState.projectiles.splice(index, 1);
-                            asteroid.remove();
-                            updateScoreInSpace(10);
+                            enemy.remove();
+                            updateScoreInSpace(enemy.dataset.name === 'alien' ? 25 : 10);
                         }
                     });
                 });

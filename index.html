@@ -37,11 +37,11 @@
             position: relative;
             width: 100%;
             height: 100%;
-            max-width: 1000px; /* Max width for desktop for better playability */
+            max-width: 1000px;
             overflow: hidden;
         }
 
-        #score, #level {
+        #score, #level, #powerup-status {
             position: absolute;
             left: 15px;
             font-weight: bold;
@@ -56,8 +56,13 @@
         }
 
         #level {
-            top: 70px; /* Positioned below the score */
+            top: 70px;
             font-size: 1.5em;
+        }
+
+        #powerup-status {
+            top: 110px;
+            font-size: 2em;
         }
         
         #instructions {
@@ -68,6 +73,10 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
             text-align: right;
             z-index: 100;
+        }
+
+        .hidden {
+            display: none;
         }
 
         #water {
@@ -119,7 +128,7 @@
             text-align: center;
             line-height: var(--boat-size);
             z-index: 20;
-            transition: left 0.1s linear; /* Smooth movement for touch */
+            transition: left 0.1s linear;
         }
 
         .item {
@@ -131,6 +140,7 @@
             line-height: var(--item-size);
             user-select: none;
             z-index: 5;
+            transition: left 0.2s linear;
         }
 
     </style>
@@ -140,6 +150,7 @@
     <div id="game-container">
         <div id="score">0</div>
         <div id="level">Nivel: 1</div>
+        <div id="powerup-status" class="hidden">🧲</div>
         <div id="instructions">
             <p>← → para mover</p>
             <p>Toca para mover en móvil</p>
@@ -154,53 +165,66 @@
             const boat = document.getElementById('boat');
             const scoreElement = document.getElementById('score');
             const levelElement = document.getElementById('level');
+            const powerupStatusElement = document.getElementById('powerup-status');
             
             let score = 0;
             let currentLevel = 1;
-            let boatPosition = 50; // in percentage
-            const boatSpeed = 2; // percentage per frame
+            let boatPosition = 50;
+            const boatSpeed = 2;
             let itemIntervalId = null;
+
+            let isMagnetActive = false;
+            let magnetTimerId = null;
+            const MAGNET_DURATION = 8000; // 8 seconds
+            const MAGNET_RADIUS_PERCENT = 25; // 25% of screen width
 
             const levelConfig = {
                 1: { nextLevelScore: 100, itemInterval: 1500, minSpeed: 1, maxSpeed: 3 },
                 2: { nextLevelScore: 300, itemInterval: 1200, minSpeed: 1.5, maxSpeed: 4 },
                 3: { nextLevelScore: 600, itemInterval: 900, minSpeed: 2, maxSpeed: 5 },
                 4: { nextLevelScore: 1000, itemInterval: 700, minSpeed: 2.5, maxSpeed: 6 },
-                5: { nextLevelScore: Infinity, itemInterval: 500, minSpeed: 3, maxSpeed: 7 } // Final level
+                5: { nextLevelScore: Infinity, itemInterval: 500, minSpeed: 3, maxSpeed: 7 }
             };
 
-            const keysPressed = {
-                ArrowLeft: false,
-                ArrowRight: false
-            };
+            const keysPressed = { ArrowLeft: false, ArrowRight: false };
 
             const itemTypes = [
                 { emoji: '💎', value: 50, name: 'treasure' },
                 { emoji: '🍎', value: 10, name: 'fruit' },
                 { emoji: '🍌', value: 10, name: 'fruit' },
                 { emoji: '🗑️', value: -25, name: 'trash' },
-                { emoji: '👢', value: -10, name: 'trash' }
+                { emoji: '👢', value: -10, name: 'trash' },
+                { emoji: '🧲', value: 0, name: 'powerup', chance: 0.1 } // 10% chance
             ];
 
             function createItem() {
-                const itemData = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                let itemData;
+                // Powerup chance logic
+                if (Math.random() < (itemTypes.find(t => t.name === 'powerup').chance || 0)) {
+                    itemData = itemTypes.find(t => t.name === 'powerup');
+                } else {
+                    const regularItems = itemTypes.filter(t => t.name !== 'powerup');
+                    itemData = regularItems[Math.floor(Math.random() * regularItems.length)];
+                }
+
                 const itemElement = document.createElement('div');
                 itemElement.classList.add('item');
+                itemElement.dataset.name = itemData.name;
                 itemElement.textContent = itemData.emoji;
                 
                 const config = levelConfig[currentLevel];
                 const speed = Math.random() * (config.maxSpeed - config.minSpeed) + config.minSpeed;
-                const horizontalPosition = Math.random() * 95; // % from left
+                const horizontalPosition = Math.random() * 95;
 
                 itemElement.style.left = `${horizontalPosition}%`;
                 itemElement.style.top = `-${parseInt(getComputedStyle(itemElement).height)}px`;
 
                 gameContainer.appendChild(itemElement);
 
-                moveItem(itemElement, speed, itemData.value);
+                moveItem(itemElement, speed, itemData);
             }
 
-            function moveItem(element, speed, value) {
+            function moveItem(element, speed, itemData) {
                 let topPosition = element.offsetTop;
 
                 function frame() {
@@ -216,7 +240,11 @@
                         itemRect.right > boatRect.left &&
                         itemRect.left < boatRect.right
                     ) {
-                        updateScore(value);
+                        if (itemData.name === 'powerup') {
+                            activateMagnet();
+                        } else {
+                            updateScore(itemData.value);
+                        }
                         element.remove();
                         return;
                     }
@@ -240,24 +268,52 @@
                 }
             }
 
+            function activateMagnet() {
+                isMagnetActive = true;
+                powerupStatusElement.classList.remove('hidden');
+                clearTimeout(magnetTimerId);
+                magnetTimerId = setTimeout(() => {
+                    isMagnetActive = false;
+                    powerupStatusElement.classList.add('hidden');
+                }, MAGNET_DURATION);
+            }
+
             function levelUp() {
                 if (levelConfig[currentLevel + 1]) {
                     currentLevel++;
                     levelElement.textContent = `Nivel: ${currentLevel}`;
-                    
-                    // Stop old interval and start a new one with the new speed
                     clearInterval(itemIntervalId);
                     itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
                 }
             }
 
+            function handleMagnetPull() {
+                if (!isMagnetActive) return;
+
+                const boatRect = boat.getBoundingClientRect();
+                const boatCenterX = boatRect.left + boatRect.width / 2;
+                const magnetRadiusPixels = (window.innerWidth * MAGNET_RADIUS_PERCENT) / 100;
+
+                document.querySelectorAll('.item').forEach(item => {
+                    const itemName = item.dataset.name;
+                    if (itemName === 'trash' || itemName === 'powerup') return;
+
+                    const itemRect = item.getBoundingClientRect();
+                    const itemCenterX = itemRect.left + itemRect.width / 2;
+
+                    if (Math.abs(boatCenterX - itemCenterX) < magnetRadiusPixels) {
+                        const currentLeftPercent = parseFloat(item.style.left);
+                        const boatCenterPercent = (boatCenterX / window.innerWidth) * 100;
+                        const pullStrength = 0.1;
+                        const newLeft = currentLeftPercent + (boatCenterPercent - currentLeftPercent) * pullStrength;
+                        item.style.left = `${newLeft}%`;
+                    }
+                });
+            }
+
             function updateBoatPosition() {
-                if (keysPressed.ArrowLeft) {
-                    boatPosition -= boatSpeed;
-                }
-                if (keysPressed.ArrowRight) {
-                    boatPosition += boatSpeed;
-                }
+                if (keysPressed.ArrowLeft) boatPosition -= boatSpeed;
+                if (keysPressed.ArrowRight) boatPosition += boatSpeed;
 
                 const boatWidth = (boat.offsetWidth / window.innerWidth) * 100;
                 boatPosition = Math.max(0, Math.min(100 - boatWidth, boatPosition));
@@ -268,16 +324,12 @@
             
             function gameLoop() {
                 updateBoatPosition();
+                handleMagnetPull();
                 requestAnimationFrame(gameLoop);
             }
 
-            window.addEventListener('keydown', (e) => {
-                if (e.key in keysPressed) keysPressed[e.key] = true;
-            });
-
-            window.addEventListener('keyup', (e) => {
-                if (e.key in keysPressed) keysPressed[e.key] = false;
-            });
+            window.addEventListener('keydown', (e) => { if (e.key in keysPressed) keysPressed[e.key] = true; });
+            window.addEventListener('keyup', (e) => { if (e.key in keysPressed) keysPressed[e.key] = false; });
 
             gameContainer.addEventListener('touchmove', (e) => {
                 e.preventDefault();
@@ -294,7 +346,6 @@
                 boat.style.transform = 'translateX(0)';
             }, { passive: false });
 
-            // Start game
             itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
             gameLoop();
         });

@@ -111,6 +111,7 @@
             const waterElement = document.getElementById('water');
             const healthElement = document.getElementById('health');
             const gameOverElement = document.getElementById('game-over');
+            const instructions = document.getElementById('instructions');
 
             let gameMode = 'water'; // 'water' or 'space'
             let score = 0, cash = 0, currentLevel = 1, currentBoatIndex = 0, playerPosition = 50, playerHealth = 3;
@@ -135,8 +136,7 @@
                 2: { scoreForNext: 300, itemInterval: 1200, minSpeed: 1.5, maxSpeed: 4 },
                 3: { scoreForNext: 600, itemInterval: 900, minSpeed: 2, maxSpeed: 5 },
                 4: { scoreForNext: 1000, itemInterval: 700, minSpeed: 2.5, maxSpeed: 6 },
-                5: { scoreForNext: 1500, itemInterval: 500, minSpeed: 3, maxSpeed: 7 },
-                6: { scoreForNext: Infinity } // Trigger for space level
+                5: { scoreForNext: 1500, itemInterval: 500, minSpeed: 3, maxSpeed: 7 }
             };
 
             const keysPressed = { ArrowLeft: false, ArrowRight: false };
@@ -223,22 +223,23 @@
             function updateCash(amount) {
                 cash += amount;
                 cashElement.textContent = `💰 ${cash}`;
+
                 if (currentBoatIndex < boatLevels.length - 1 && cash >= boatLevels[currentBoatIndex].cashForNext) {
                     currentBoatIndex++;
                     player.textContent = boatLevels[currentBoatIndex].emoji;
+
+                    if (currentBoatIndex === boatLevels.length - 1) {
+                        setTimeout(switchToSpaceLevel, 2000); 
+                    }
                 }
             }
 
             function levelUp() {
                 if (gameMode !== 'water' || !levelConfig[currentLevel + 1]) return;
                 currentLevel++;
-                if (currentLevel === 6 && currentBoatIndex === boatLevels.length - 1) {
-                    switchToSpaceLevel();
-                } else {
-                    levelElement.textContent = `Nivel: ${currentLevel}`;
-                    clearInterval(itemIntervalId);
-                    itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
-                }
+                levelElement.textContent = `Nivel: ${currentLevel}`;
+                clearInterval(itemIntervalId);
+                itemIntervalId = setInterval(createItem, levelConfig[currentLevel].itemInterval);
             }
 
             function switchToSpaceLevel() {

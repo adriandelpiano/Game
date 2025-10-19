@@ -16,6 +16,8 @@
         .hidden { display: none !important; }
         #ui-container { position: absolute; top: 15px; left: 15px; font-weight: bold; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 100; }
         #game-over { top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 3em; text-align: center; width: 100%; position: absolute; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 100;}
+        #controls-container { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 101; }
+        .control-btn { width: 60px; height: 60px; font-size: 2em; background: rgba(255,255,255,0.5); border: 2px solid white; border-radius: 50%; margin: 0 10px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -27,6 +29,10 @@
         </div>
         <div id="player"></div>
         <div id="game-over" class="hidden">GAME OVER</div>
+        <div id="controls-container">
+            <button id="left-btn" class="control-btn">⬅️</button>
+            <button id="right-btn" class="control-btn">➡️</button>
+        </div>
     </div>
 
     <script>
@@ -38,6 +44,8 @@
                 this.cash = document.getElementById('cash');
                 this.health = document.getElementById('health');
                 this.gameOver = document.getElementById('game-over');
+                this.leftBtn = document.getElementById('left-btn');
+                this.rightBtn = document.getElementById('right-btn');
             }
             updateScore(score) { this.score.textContent = `Puntos: ${score}`; }
             updateCash(cash) { this.cash.textContent = `Dinero: ${cash}`; }
@@ -84,8 +92,22 @@
                 this.gameLoopId = null;
                 this.itemIntervalId = null;
 
-                window.addEventListener('keydown', (e) => { if (this.keysPressed.hasOwnProperty(e.key)) this.keysPressed[e.key] = true; });
-                window.addEventListener('keyup', (e) => { if (this.keysPressed.hasOwnProperty(e.key)) this.keysPressed[e.key] = false; });
+                window.addEventListener('keydown', (e) => this.setKeyState(e.key, true));
+                window.addEventListener('keyup', (e) => this.setKeyState(e.key, false));
+                this.dom.leftBtn.addEventListener('mousedown', () => this.setKeyState('ArrowLeft', true));
+                this.dom.leftBtn.addEventListener('mouseup', () => this.setKeyState('ArrowLeft', false));
+                this.dom.leftBtn.addEventListener('touchstart', () => this.setKeyState('ArrowLeft', true));
+                this.dom.leftBtn.addEventListener('touchend', () => this.setKeyState('ArrowLeft', false));
+                this.dom.rightBtn.addEventListener('mousedown', () => this.setKeyState('ArrowRight', true));
+                this.dom.rightBtn.addEventListener('mouseup', () => this.setKeyState('ArrowRight', false));
+                this.dom.rightBtn.addEventListener('touchstart', () => this.setKeyState('ArrowRight', true));
+                this.dom.rightBtn.addEventListener('touchend', () => this.setKeyState('ArrowRight', false));
+            }
+
+            setKeyState(key, state) {
+                if (this.keysPressed.hasOwnProperty(key)) {
+                    this.keysPressed[key] = state;
+                }
             }
 
             start() {
@@ -228,15 +250,8 @@
             }
 
             updatePlayer() {
-                if (this.keys.ArrowLeft) {
-                    this.player.x -= this.player.speed;
-                    this.dom.setPlayerEmoji('⬅️');
-                } else if (this.keys.ArrowRight) {
-                    this.player.x += this.player.speed;
-                    this.dom.setPlayerEmoji('➡️');
-                } else {
-                    this.dom.setPlayerEmoji('🚤');
-                }
+                if (this.keys.ArrowLeft) this.player.x -= this.player.speed;
+                if (this.keys.ArrowRight) this.player.x += this.player.speed;
                 this.player.x = Math.max(0, Math.min(90, this.player.x));
                 this.dom.setPlayerPosition(this.player.x, this.player.y);
             }

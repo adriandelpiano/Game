@@ -291,6 +291,22 @@
             // Event Listeners and other functions (activateMagnet, activateSlowDebuff, handleMagnetPull) would be here, simplified for brevity
             // ... (Assume they are correctly implemented as in previous steps)
 
+            gameContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touchX = e.touches[0].clientX;
+                const gameRect = gameContainer.getBoundingClientRect();
+                const playerWidth = player.offsetWidth;
+                
+                let newPos = ((touchX - gameRect.left) / gameRect.width) * 100;
+                const playerWidthPercent = (playerWidth / gameRect.width) * 100;
+                
+                playerPosition = newPos - playerWidthPercent / 2;
+
+                const clampedPos = Math.max(0, Math.min(100 - playerWidthPercent, playerPosition));
+                player.style.left = `${clampedPos}%`;
+                player.style.transform = 'translateX(0)';
+            }, { passive: false });
+
             init();
         });
     </script>
